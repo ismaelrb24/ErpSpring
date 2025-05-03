@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Clients</title>
+</head>
+<body>
+    <h1>Liste des Clients</h1>
+    
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Date de naissance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Boucle pour afficher chaque client -->
+            <tr th:each="client : ${clients}">
+                <td th:text="${client.nom}">Nom</td>
+                <td th:text="${client.datenaissance}">Date de naissance</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

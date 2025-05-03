@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Factures d'Achat</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+</head>
+<body>
+<div class="sidebar">
+    <h4 class="text-center">Menu</h4>
+    <a th:href="@{/api/auth/accueil}">Accueil</a>
+    <a th:href="@{/fournisseurs}">Supplier List</a>
+    <a th:href="@{/accounting}">Accounting</a>
+    <a th:href="@{/api/auth/logout}">Logout</a>
+</div>
+<div class="content">
+    <div class="container mt-5">
+        <h2 class="mb-4">Liste des Factures d'Achat</h2>
+
+        <!-- Filtre par statut -->
+        <form method="get" action="/accountingsearch" class="row mb-4">
+            <div class="col-md-4">
+                <select name="status" class="form-select">
+                    <option value="">-- Tous les statuts --</option>
+                    <option value="Unpaid" th:selected="${status == 'Unpaid'}">Unpaid</option>
+                    <option value="Partly Paid" th:selected="${status == 'Partly Paid'}">Partly Paid</option>
+                    <option value="Paid" th:selected="${status == 'Paid'}">Paid</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary">Filtrer</button>
+            </div>
+        </form>
+
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID Facture</th>
+                    <th>Fournisseur</th>
+                    <th>Date de Publication</th>
+                    <th>Montant Total</th>
+                    <th>Statut</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="invoice : ${invoices}">
+                    <td th:text="${invoice.name}">ID Facture</td>
+                    <td th:text="${invoice.supplier}">Fournisseur</td>
+                    <td th:text="${invoice.postingDate}">Date</td>
+                    <td th:text="${invoice.grandTotal}">Montant</td>
+                    <td th:text="${invoice.status}">Statut</td>
+                    <td>
+                        <form th:if="${invoice.status != 'Paid'}" th:action="@{'/pay'}" method="post" style="display:inline;">
+                            <input type="hidden" name="invoiceId" th:value="${invoice.name}" />
+                            <button type="submit" class="btn btn-success btn-sm">Payer</button>
+                        </form>                    
+                        <span th:if="${invoice.status == 'Paid'}" class="text-muted">Déjà payé</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

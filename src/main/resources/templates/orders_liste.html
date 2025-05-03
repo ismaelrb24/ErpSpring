@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Liste des Commandes d'Achat</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+</head>
+<body>
+<div class="sidebar">
+    <h4 class="text-center">Menu</h4>
+    <a th:href="@{/api/auth/accueil}">Accueil</a>
+    <a th:href="@{/fournisseurs}">Supplier List</a>
+    <a th:href="@{/accounting}">Accounting</a>
+    <a th:href="@{/api/auth/logout}">Logout</a>
+</div>
+<div class="content">
+<div class="container mt-5">
+    <h2 class="mb-4">Commandes d'Achat</h2>
+
+    <!-- Messages -->
+    <div th:if="${error}" class="alert alert-danger">
+        <p th:text="${error}"></p>
+    </div>
+    <div th:if="${message}" class="alert alert-success">
+        <p th:text="${message}"></p>
+    </div>
+    <!-- filtre -->
+    <form th:action="@{/ordersearch}" method="get" class="row g-3 mb-4">
+        <div class="col-md-4">
+            <input type="hidden"  name="name" th:value="${name}" readonly>
+            <label for="etat" class="form-label">Filtrer par Status</label>
+            <select id="etat" name="etat" class="form-select">
+                <option value="" th:selected="${etat == null or etat == ''}">-- Tous --</option>
+                <option value="Reçu" th:selected="${etat == 'Reçu'}">Reçu</option>
+                <option value="Payé" th:selected="${etat == 'Payé'}">Payé</option>
+            </select>
+        </div>
+        <div class="col-md-2 align-self-end">
+            <button type="submit" class="btn btn-primary">Filtrer</button>
+        </div>
+    </form>
+    <!-- tableau -->
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>ID Commande</th>
+                <th>Fournisseur</th>
+                <th>Date de Transaction</th>
+                <th>Montant Total</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="order : ${ordersconcerned}">
+                <td th:text="${order.name}">ID Commande</td>
+                <td th:text="${order.supplier}">Fournisseur</td>
+                <td th:text="${order.transactionDate}">Date</td>
+                <td th:text="${order.grandTotal}">Montant Total</td>
+                <td th:text="${order.status}">Statut</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</div>
+</body>
+</html>
