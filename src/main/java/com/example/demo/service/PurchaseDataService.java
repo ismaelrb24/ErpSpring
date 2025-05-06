@@ -14,6 +14,7 @@ public class PurchaseDataService {
     private final RestTemplate restTemplate;
     private final String apiUrl = "http://erpnext.localhost:8000/api/method/erpnext.controllers.api.data_api.get_all_data";
     private final String updateRateApiUrl = "http://erpnext.localhost:8000/api/method/erpnext.controllers.api.data_api.update_supplier_quotation_item_rate";
+    private final String generateSupplierQuotationApiUrl = "http://erpnext.localhost:8000/api/method/erpnext.controllers.api.data_api.generate_supplier_quotation";
     public PurchaseDataService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -118,5 +119,77 @@ public class PurchaseDataService {
             throw new RuntimeException("Échec du paiement de la facture : " + (apiResponse != null ? apiResponse.getMessage() : "Erreur inconnue"));
         }
     }
+    public ApiResponse payerPartiellementFacture(HttpSession session, String invoiceName, double amount) {
+        String token = (String) session.getAttribute("accessToken");
+        String sid = (String) session.getAttribute("sid");
     
+        if (token == null || sid == null) {
+            throw new RuntimeException("Token ou SID manquant dans la session.");
+        }
+    
+        String url = "http://erpnext.localhost:8000/api/method/erpnext.controllers.api.data_api.pay_partial_purchase_invoice";
+    
+        // Préparer les données JSON
+        String requestBody = String.format("{\"invoice_name\":\"%s\",\"amount\":%f}", invoiceName, amount);
+    
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.add("Cookie", "sid=" + sid);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+    
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+    
+        ResponseEntity<ApiResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                ApiResponse.class
+        );
+    
+        ApiResponse apiResponse = response.getBody();
+        if (apiResponse != null) {
+            return apiResponse;
+        } else {
+            throw new RuntimeException("Erreur lors du paiement partiel.");
+        }
+    }
+    
+    public ApiResponse generateSupplierQuotation(HttpSession session, String itemname,String rfqName,double rate) {
+        String token = (String) session.getAttribute("accessToken");
+        String sid = (String) session.getAttribute("sid");
+
+        if (token == null || sid == null) {
+            throw new RuntimeException("Token ou SID manquant dans la session.");
+        }
+
+        // Préparer les données de la requête
+        String requestBody = String.format("{\"rfq_name\":\"%s\", \"rate\":%f, \"supplier_name\":\"%s\"}", 
+            rfqName, rate, itemname
+        );
+
+        // Configuration des entêtes HTTP
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.add("Cookie", "sid=" + sid);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // Création de l'entité avec les données et entêtes
+        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+        // Envoi de la requête POST à l'API pour générer et soumettre le Supplier Quotation
+        ResponseEntity<ApiResponse> response = restTemplate.exchange(
+                generateSupplierQuotationApiUrl,
+                HttpMethod.POST,
+                entity,
+                ApiResponse.class
+        );
+
+        // Traitement de la réponse de l'API
+        ApiResponse apiResponse = response.getBody();
+        if (apiResponse != null && apiResponse.getMessage() != null) {
+            return apiResponse; // Retourne la réponse de l'API si tout est OK
+        } else {
+            throw new RuntimeException("Erreur lors de la création et soumission du Supplier Quotation.");
+        }
+    }
 }

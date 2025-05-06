@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="sidebar">
-    <h4 class="text-center">Menu</h4>
+    <h4 class="text-center" style="color:blue;">ErpNext</h4>
     <a th:href="@{/api/auth/accueil}">Accueil</a>
     <a th:href="@{/fournisseurs}">Supplier List</a>
     <a th:href="@{/accounting}">Accounting</a>
@@ -39,6 +39,8 @@
                     <th>ID Facture</th>
                     <th>Fournisseur</th>
                     <th>Date de Publication</th>
+                    <th>Deja Payé</th>
+                    <th>Reste à Payer</th>
                     <th>Montant Total</th>
                     <th>Statut</th>
                     <th>Action</th>
@@ -49,12 +51,18 @@
                     <td th:text="${invoice.name}">ID Facture</td>
                     <td th:text="${invoice.supplier}">Fournisseur</td>
                     <td th:text="${invoice.postingDate}">Date</td>
+                    <td th:text="${invoice.getPaidamount}">Paye</td>
+                    <td th:text="${invoice.outsidepayement}">Reste</td>
                     <td th:text="${invoice.grandTotal}">Montant</td>
                     <td th:text="${invoice.status}">Statut</td>
                     <td>
-                        <form th:if="${invoice.status != 'Paid'}" th:action="@{'/pay'}" method="post" style="display:inline;">
+                        <form th:if="${invoice.status != 'Paid' and invoice.status != 'Partly Paid'}" th:action="@{'/pay'}" method="post" style="display:inline;">
                             <input type="hidden" name="invoiceId" th:value="${invoice.name}" />
                             <button type="submit" class="btn btn-success btn-sm">Payer</button>
+                        </form>                    
+                        <form th:if="${invoice.status != 'Paid' }" th:action="@{'/paypart'}" method="get" style="display:inline;">
+                            <input type="hidden" name="invoiceId" th:value="${invoice.name}" />
+                            <button type="submit" class="btn btn-success btn-sm">Payer Partielement</button>
                         </form>                    
                         <span th:if="${invoice.status == 'Paid'}" class="text-muted">Déjà payé</span>
                     </td>

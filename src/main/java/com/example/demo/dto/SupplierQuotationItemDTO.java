@@ -14,6 +14,9 @@ public class SupplierQuotationItemDTO {
 
     @JsonProperty("item_code")
     private String itemCode;
+    
+    @JsonProperty("request_for_quotation")
+    private String request;
 
     @JsonProperty("item_name")
     private String itemName;
@@ -44,6 +47,13 @@ public class SupplierQuotationItemDTO {
         this.parent = parent;
     }
 
+    public String getRequest() {
+        return request;
+    }
+
+    public void setRequest(String request) {
+        this.request = request;
+    }
     public String getItemCode() {
         return itemCode;
     }
@@ -94,6 +104,16 @@ public class SupplierQuotationItemDTO {
                     listes.add(item);
                 }
             }
+        }
+
+        return listes;
+    }
+    public static List<SupplierQuotationItemDTO> getquotationitembyrequest(String name,List<SupplierQuotationItemDTO> items) {
+        List<SupplierQuotationItemDTO> listes = new ArrayList<>();
+            for (SupplierQuotationItemDTO item : items) {
+                if (item.getRequest().equals(name)) {
+                    listes.add(item);
+                }
         }
 
         return listes;

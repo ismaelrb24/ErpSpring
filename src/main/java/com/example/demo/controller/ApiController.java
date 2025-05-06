@@ -68,6 +68,41 @@ public class ApiController {
         }
 
         PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
+        List<RequestForQuotationDTO> listrfq = purchaseDataService.getAllPurchaseData(session).getRequestForQuotations();
+        List<RequestForQuotationSupplierDTO> listrfqs = purchaseDataService.getAllPurchaseData(session).getRequestForQuotationSuppliers();
+        if (listrfq == null || listrfqs == null) {
+            model.addAttribute("error", "Aucune donnée disponible.");
+            return "request_quotation"; 
+        }
+
+        List<RequestForQuotationDTO> listeconcerned = RequestForQuotationDTO.getrequestsupplier(name, listrfqs, listrfq);
+        model.addAttribute("requestquotation", listeconcerned);
+        model.addAttribute("name", name);
+        return "request_quotation";
+    }
+    @PostMapping("/generate")
+    public String update(@RequestParam("itemName") String itemName,@RequestParam("rfqname") String rfqname, 
+                         @RequestParam("rate") double rate, Model model, HttpSession session, RestTemplate restTemplate) {
+        String token = (String) session.getAttribute("accessToken");
+        String sid = (String) session.getAttribute("sid");
+    
+        if (token == null || sid == null) {
+            return "redirect:/api/auth/";
+        }
+        PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
+        ApiResponse apiResponse = purchaseDataService.generateSupplierQuotation(session, itemName,rfqname,rate);
+    
+           return "redirect:/api/auth/accueil";
+    }
+    
+    @GetMapping("/detailquotation")
+    public String afficherdetailquotation(@RequestParam("name") String name, Model model, HttpSession session, RestTemplate restTemplate) {
+        String token = (String) session.getAttribute("accessToken");
+        if (token == null) {
+            return "redirect:/api/auth/";
+        }
+
+        PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
         List<SupplierQuotationDTO> quotation = purchaseDataService.getAllPurchaseData(session).getSupplierQuotations();
         List<SupplierQuotationItemDTO> quotationitems = purchaseDataService.getAllPurchaseData(session).getSupplierQuotationItems();
         if (quotation == null || quotationitems == null) {
@@ -75,12 +110,11 @@ public class ApiController {
             return "quotation_items"; 
         }
 
-        List<SupplierQuotationItemDTO> listeconcerned = SupplierQuotationItemDTO.getquotationitembysupplier(name, quotation, quotationitems);
+        List<SupplierQuotationItemDTO> listeconcerned = SupplierQuotationItemDTO.getquotationitembyrequest(name,quotationitems);
         model.addAttribute("quotationitems", listeconcerned);
         model.addAttribute("name", name);
         return "quotation_items";
     }
-
     @GetMapping("/update-quotation-item-rate")
     public String showUpdateForm(@RequestParam("itemName") String itemName, Model model, HttpSession session, RestTemplate restTemplate) {
         PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
@@ -89,12 +123,11 @@ public class ApiController {
         if (token == null) {
             return "redirect:/api/auth/";
         }
-        SupplierQuotationItemDTO item = SupplierQuotationItemDTO.getByName(itemName, quotationitems); // adapte selon ton service
+        SupplierQuotationItemDTO item = SupplierQuotationItemDTO.getByName(itemName, quotationitems);
         model.addAttribute("item", item);
         return "update_quotation_item_rate";
     }
 
-    // Fonction de modification du taux d'un article
     @PostMapping("/update-quotation-item-rate")
     public String updateQuotationItemRate(
             @RequestParam String itemName, 
@@ -111,7 +144,7 @@ public class ApiController {
             ApiResponse apiResponse = purchaseDataService.updateSupplierQuotationItemRate(session, itemName, newRate);
 
             model.addAttribute("message", apiResponse.getMessage());  // Affiche le message de succès
-            return "redirect:/quotation?name=" + itemName; // Redirige vers la page de détail du fournisseur
+            return "redirect:/api/auth/accueil";
         } catch (RuntimeException e) {
             model.addAttribute("error", "Erreur lors de la mise à jour du taux : " + e.getMessage());
             return "quotation_items";
@@ -165,4 +198,31 @@ public class ApiController {
         purchaseDataService.payPurchaseInvoice(session, invoiceId);
         return "redirect:/accounting";
     }
+    @GetMapping("/paypart")
+    public String showformpayement(@RequestParam("invoiceId") String invoiceId, Model model, HttpSession session, RestTemplate restTemplate){
+        PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
+        List<PurchaseInvoiceDTO> invoices = purchaseDataService.getAllPurchaseData(session).getPurchaseInvoices();
+        PurchaseInvoiceDTO invoice=PurchaseInvoiceDTO.getByname(invoices, invoiceId);
+        model.addAttribute("invoice", invoice);
+        return "payement_part";
+    }
+    @PostMapping("/payvalue")
+    public String payerPartiellement(@RequestParam("invoiceName") String invoiceName,@RequestParam("newRate") double montantAPayer,HttpSession session,
+            RestTemplate restTemplate,Model model) {
+        
+        String token = (String) session.getAttribute("accessToken");
+        if (token == null) {
+            return "redirect:/api/auth/";
+        }
+
+        try {
+            PurchaseDataService purchaseDataService = new PurchaseDataService(restTemplate);
+            purchaseDataService.payerPartiellementFacture(session, invoiceName, montantAPayer);
+            return "redirect:/accounting";
+        } catch (Exception e) {
+            model.addAttribute("error", "Erreur lors du paiement partiel : " + e.getMessage());
+            return "payement_part";
+        }
+    }
+
 }

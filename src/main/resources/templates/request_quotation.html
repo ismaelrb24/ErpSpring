@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Demandes de devis fournisseur</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+</head>
+<body>
+<div class="sidebar">
+    <h4 class="text-center" style="color:blue;">ErpNext</h4>
+    <a th:href="@{/api/auth/accueil}">Accueil</a>
+    <a th:href="@{/fournisseurs}">Supplier List</a>
+    <a th:href="@{/accounting}">Accounting</a>
+    <a th:href="@{/api/auth/logout}">Logout</a>
+</div>
+
+<div class="content">
+    <div class="text-end">
+        <a th:href="@{/order(name=${name})}" class="btn btn-primary mb-4">Voir les Commandes d'Achat</a>
+    </div>
+    <div class="container mt-5">
+        <h2 class="mb-4">Demandes de devis pour le fournisseur "<span th:text="${name}">Nom Fournisseur</span>"</h2>
+
+        <!-- Affichage des erreurs ou du succès -->
+        <div th:if="${error}" class="alert alert-danger">
+            <p th:text="${error}"></p>
+        </div>
+        <div th:if="${message}" class="alert alert-success">
+            <p th:text="${message}"></p>
+        </div>
+
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Date de transaction</th>
+                    <th>Date de livraison prévue</th>
+                    <th>Statut</th>
+                    <th>Entreprise</th>
+                    <th>Incoterm</th>
+                    <th>Lieu nommé</th>
+                    <th>Création</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="rfq : ${requestquotation}">
+                    <td>   
+                    <a th:href="@{/detailquotation(name=${rfq.name})}"
+                        th:text="${rfq.name}">Id</a>
+                    </td>
+                    <td th:text="${rfq.transactionDate}">Transaction</td>
+                    <td th:text="${rfq.scheduleDate}">Livraison</td>
+                    <td th:text="${rfq.status}">Statut</td>
+                    <td th:text="${rfq.company}">Entreprise</td>
+                    <td th:text="${rfq.incoterm}">Incoterm</td>
+                    <td th:text="${rfq.namedPlace}">Lieu</td>
+                    <td th:text="${#temporals.format(rfq.creation, 'dd/MM/yyyy HH:mm')}">Création</td>
+                    <td>
+                        <form th:action="@{/generate}" method="post">
+                            <input type="hidden" name="itemName" th:value="${name}" />
+                            <input type="hidden" name="rfqname" th:value="${rfq.name}" />
+                            <input type="number" step="0.01" name="rate" class="form-control mb-2" placeholder="Saisir le taux" required />
+                            <button type="submit" class="btn btn-success btn-sm">Generer Supplier Quotation</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
