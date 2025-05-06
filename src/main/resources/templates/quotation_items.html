@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="sidebar">
-    <h4 class="text-center">Menu</h4>
+    <h4 class="text-center" style="color:blue;">ErpNext</h4>
     <a th:href="@{/api/auth/accueil}">Accueil</a>
     <a th:href="@{/fournisseurs}">Supplier List</a>
     <a th:href="@{/accounting}">Accounting</a>
@@ -24,9 +24,6 @@
         </div>
         <div th:if="${message}" class="alert alert-success">
             <p th:text="${message}"></p>
-        </div>
-        <div class="text-end">
-            <a th:href="@{/order(name=${name})}" class="btn btn-primary mb-4">Voir les Commandes d'Achat</a>
         </div>
         <div class="row">
             <div >

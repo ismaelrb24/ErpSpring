@@ -15,7 +15,9 @@ public class PurchaseInvoiceDTO {
 
     @JsonProperty("posting_date")
     private String postingDate;
-
+    private Double paidamount;
+    @JsonProperty("outstanding_amount")
+    private Double outsidepayement;
     @JsonProperty("grand_total")
     private Double grandTotal;
 
@@ -46,7 +48,21 @@ public class PurchaseInvoiceDTO {
     public void setPostingDate(String postingDate) {
         this.postingDate = postingDate;
     }
+    public Double getOutsidepayement() {
+        return outsidepayement;
+    }
 
+    public void setOutsidepayement(Double outsidepayement) {
+        this.outsidepayement = outsidepayement;
+    }
+    public Double getPaidamount() {
+        this.paidamount=this.grandTotal-this.outsidepayement;
+        return paidamount;
+    }
+
+    public void setPaidamount(Double paidamount) {
+        this.paidamount = paidamount;
+    }
     public Double getGrandTotal() {
         return grandTotal;
     }
@@ -75,5 +91,13 @@ public class PurchaseInvoiceDTO {
             }
        }
         return listes; 
+    }
+    public static PurchaseInvoiceDTO getByname(List<PurchaseInvoiceDTO> invoices,String name) {
+        for (PurchaseInvoiceDTO invoice : invoices) {
+            if (invoice.getName().equals(name)) {
+                return invoice;
+            }
+        }
+        return null;
     }
 }
