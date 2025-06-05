@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Salaries</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+</head>
+<body>
+<div class="sidebar">
+    <h4 class="text-center" style="color:blue;">ErpNext</h4>
+    <a th:href="@{/api/auth/accueil}">Accueil</a>
+        <a th:href="@{/api/Hr/employeeList}">Employees List</a>
+        <a th:href="@{/api/Hr/salaries}">HR All</a>
+        <a th:href="@{/fournisseurs}">Supplier List</a>
+        <a th:href="@{/accounting}">Accounting</a>
+        <a th:href="@{/api/hrms-csv-import/}">Import</a>
+        <a th:href="@{/api/auth/logout}">Logout</a>
+    </div>
+
+</div>
+<div class="content">
+    <div class="container mt-5">
+        <h2 class="mb-4">Salaries</h2>
+
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+        <!-- Search Form -->
+        <form th:action="@{/api/Hr/searchmounth}" method="get" class="mb-4">
+            <div class="input-group">
+                <label for="month" class="input-group-text">Select Month</label>
+                <input type="month" id="month" name="month" class="form-control" th:value="${month}" placeholder="YYYY-MM">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+        </form>
+
+        <!-- Employees Table -->
+        <table class="table table-bordered table-striped" th:if="${employees != null and not #lists.isEmpty(employees)}">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Pay Period</th>
+                    <th>Gross Pay</th>
+                    <th>Deductions</th>
+                    <th>Net Pay</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="employee : ${employees}" th:if="${employee.salarySlip != null and not #lists.isEmpty(employee.salarySlip)}">
+                    <td th:text="${employee.employeeName != null ? employee.employeeName : 'N/A'}"></td>
+                    <td th:text="${employee.salarySlip[0].startDate != null and employee.salarySlip[0].endDate != null ? employee.salarySlip[0].startDate + ' - ' + employee.salarySlip[0].endDate : 'N/A'}"></td>
+                    <td th:text="${employee.salarySlip[0].grossPay != null ? employee.salarySlip[0].grossPay : '0.0'}"></td>
+                    <td th:text="${employee.salarySlip[0].totalDeduction != null ? employee.salarySlip[0].totalDeduction : '0.0'}"></td>
+                    <td th:text="${employee.salarySlip[0].netPay != null ? employee.salarySlip[0].netPay : '0.0'}"></td>
+                </tr>
+                <tr th:if="${employees != null and not #lists.isEmpty(employees) and not #lists.isEmpty(employees[0].salarySlip)}">
+                    <td colspan="5" class="text-center">No salary slips available.</td>
+                </tr>
+            </tbody>
+             <tfoot class="table-light fw-bold">
+                <tr>
+                    <td colspan="2" class="text-end">Total</td>
+                    <td th:text="${totalgross}"></td>
+                    <td th:text="${totaldeductions}"></td>
+                    <td th:text="${totalnets}"></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div th:if="${employees == null or #lists.isEmpty(employees)}" class="alert alert-warning">
+            No employees found.
+        </div>
+    </div>
+</div>
+</body>
+</html>
+```
