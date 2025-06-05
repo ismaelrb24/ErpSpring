@@ -161,33 +161,23 @@ public class PurchaseDataService {
         if (token == null || sid == null) {
             throw new RuntimeException("Token ou SID manquant dans la session.");
         }
-
-        // Préparer les données de la requête
         String requestBody = String.format("{\"rfq_name\":\"%s\", \"rate\":%f, \"supplier_name\":\"%s\"}", 
             rfqName, rate, itemname
         );
-
-        // Configuration des entêtes HTTP
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
         headers.add("Cookie", "sid=" + sid);
         headers.setContentType(MediaType.APPLICATION_JSON);
-
-        // Création de l'entité avec les données et entêtes
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-
-        // Envoi de la requête POST à l'API pour générer et soumettre le Supplier Quotation
         ResponseEntity<ApiResponse> response = restTemplate.exchange(
                 generateSupplierQuotationApiUrl,
                 HttpMethod.POST,
                 entity,
                 ApiResponse.class
         );
-
-        // Traitement de la réponse de l'API
         ApiResponse apiResponse = response.getBody();
         if (apiResponse != null && apiResponse.getMessage() != null) {
-            return apiResponse; // Retourne la réponse de l'API si tout est OK
+            return apiResponse; 
         } else {
             throw new RuntimeException("Erreur lors de la création et soumission du Supplier Quotation.");
         }
