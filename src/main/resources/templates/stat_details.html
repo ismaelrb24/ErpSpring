@@ -1,0 +1,134 @@
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salary Details by Month</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+    <style>
+        .payslip-container { max-width: 800px; margin: auto; padding: 20px; }
+        .table th, .table td { vertical-align: middle; }
+        .collapse-tables { padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; }
+        .detail-btn { cursor: pointer; }
+        .collapse-row td { padding: 0; border: none; } /* Ensure no padding/border for collapse row */
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <h4 class="text-center" style="color:blue;">ErpNext</h4>
+        <a th:href="@{/api/auth/accueil}">Accueil</a>
+        <a th:href="@{/api/Hr/employeeList}">Employees List</a>
+        <a th:href="@{/api/Hr/salaries}">HR All</a>
+        <a th:href="@{/fournisseurs}">Supplier List</a>
+        <a th:href="@{/accounting}">Accounting</a>
+        <a th:href="@{/api/hrms-csv-import/}">Import</a>
+        <a th:href="@{/api/Hr/statistics}">Statistics</a>
+        <a th:href="@{/api/auth/logout}">Logout</a>
+    </div>
+    <div class="content">
+        <div class="container mt-5 payslip-container">
+            <h1 class="mb-4">Salary Details for Selected Month</h1>
+            <div th:if="${concernedEmployees != null and not #lists.isEmpty(concernedEmployees)}">
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Gross Pay</th>
+                            <th>Total Deductions</th>
+                            <th>Net Pay</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <th:block th:each="employee, empIter : ${concernedEmployees}">
+                            <tr>
+                                <td th:text="${employee.employeeName} ?: 'N/A'"></td>
+                                <td th:text="${employee.salarySlip[0].grossPay} ?: 0.0"></td>
+                                <td th:text="${employee.salarySlip[0].totalDeduction} ?: 0.0"></td>
+                                <td th:text="${employee.salarySlip[0].netPay} ?: 0.0"></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary detail-btn" 
+                                            type="button" 
+                                            data-bs-toggle="collapse" 
+                                            th:attr="data-bs-target='#collapseDetails' + ${empIter.index}"
+                                            aria-expanded="false"
+                                            th:attrappend="aria-controls='collapseDetails' + ${empIter.index}">
+                                        Details
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="collapse-row">
+                                <td colspan="5" class="p-0">
+                                    <div th:id="'collapseDetails' + ${empIter.index}" class="collapse collapse-tables">
+                                        <!-- Earnings Table -->
+                                        <h6>Earnings</h6>
+                                        <table class="table table-bordered table-striped mb-3">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Description</th>
+                                                    <th class="text-end">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="detail : ${employee.salarySlip[0].correspond}" th:if="${detail != null}">
+                                                    <td th:text="${detail.salaryComponent != null ? detail.salaryComponent : 'N/A'}"></td>
+                                                    <td th:text="${detail.amount != null ? detail.amount + ' EUR' : '0.00 EUR'}" class="text-end"></td>
+                                                </tr>
+                                                <tr th:if="${employee.salarySlip[0].correspond == null or employee.salarySlip[0].correspond.isEmpty()}">
+                                                    <td colspan="2" class="text-center">No earnings details available.</td>
+                                                </tr>
+                                                <tr class="fw-bold">
+                                                    <td>Total Earnings</td>
+                                                    <td th:text="${employee.salarySlip[0].grossPay != null ? employee.salarySlip[0].grossPay + ', EUR' : '0.00 EUR'}" class="text-end"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+
+                                        <!-- Deductions Table -->
+                                        <h6>Deductions</h6>
+                                        <table class="table table-bordered table-striped">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Description</th>
+                                                    <th class="text-end">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="deduct : ${employee.salarySlip[0].deductions}" th:if="${deduct != null}">
+                                                    <td th:text="${deduct.salaryComponent != null ? deduct.salaryComponent : 'N/A'}"></td>
+                                                    <td th:text="${deduct.amount != null ? deduct.amount + ' EUR' : '0.00 EUR'}" class="text-end"></td>
+                                                </tr>
+                                                <tr th:if="${employee.salarySlip[0].deductions == null or employee.salarySlip[0].deductions.isEmpty()}">
+                                                    <td colspan="2" class="text-center">No deductions available.</td>
+                                                </tr>
+                                                <tr class="fw-bold">
+                                                    <td>Total Deductions</td>
+                                                    <td th:text="${employee.salarySlip[0].totalDeduction != null ? employee.salarySlip[0].totalDeduction + ', EUR' : '0.00 EUR'}" class="text-end"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        </th:block>
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td class="text-end">Total</td>
+                            <td th:text="${stat.totalGrossPay}"></td>
+                            <td th:text="${stat.totalDeductions}"></td>
+                            <td th:text="${stat.totalNetPay}"></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div th:if="${concernedEmployees == null or #lists.isEmpty(concernedEmployees)}" class="alert alert-info">
+                No employees found for the selected month.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

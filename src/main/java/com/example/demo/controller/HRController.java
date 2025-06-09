@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 import com.example.demo.dto.*;
+import com.example.demo.model.*;
 import com.example.demo.service.*;
 
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,10 @@ import jakarta.servlet.http.HttpSession;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Controller
@@ -273,6 +277,7 @@ public class HRController {
         Double totalnets=EmployeeDTO.getotalNetPay(employlist);
         Double totalgross=EmployeeDTO.getotalGrosspay(employlist);
         Double totaldeductions=EmployeeDTO.getotalDeduction(employlist);
+        System.out.println(employlist.size());
 
          model.addAttribute("employees", employlist);
          model.addAttribute("totalnets", totalnets);
@@ -302,5 +307,111 @@ public class HRController {
         }
 
         return "salaries";
+    }
+    @GetMapping("/statistic")
+    public String showStatPage(Model model,HttpSession session,RestTemplate restTemplate) {
+        try {
+        HrService rhservice = new HrService(restTemplate);
+        List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();
+        Set<String> availableYears = new HashSet<>();
+        if (statistics != null) {
+            for (StatisticDTO stat : statistics) {
+                if (stat != null && stat.getMonth() != null) {
+                    availableYears.add(stat.getMonth().substring(0, 4));
+                }
+            }
+        }
+        // Préparer les données pour le graphique
+            List<String> months = statistics.stream()
+                    .map(StatisticDTO::getMonth)
+                    .collect(Collectors.toList());
+            List<Double> grossPay = statistics.stream()
+                    .map(stat -> stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0)
+                    .collect(Collectors.toList());
+            List<Double> deductions = statistics.stream()
+                    .map(stat -> stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0)
+                    .collect(Collectors.toList());
+            List<Double> netPay = statistics.stream()
+                    .map(stat -> stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0)
+                    .collect(Collectors.toList());
+
+            ChartData chartData = new ChartData(months, grossPay, deductions, netPay);
+
+         model.addAttribute("monthlyStats", statistics);
+         model.addAttribute("availableYears", availableYears);
+         model.addAttribute("chartData", chartData);
+        } catch (Exception e) {
+        model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
+        }
+
+        return "statistics";
+    }
+    @GetMapping("/searchstat")
+    public String getStatistics(Model model, @RequestParam(value = "year", required = false) String year,HttpSession session
+    ,RestTemplate restTemplate) {
+        
+        HrService rhservice = new HrService(restTemplate);
+        List<StatisticDTO> allStats = rhservice.getAllHr(session).getStatistics(); 
+        // Filtrer les statistiques par année en utilisant StatisticDTO.getByYear
+        List<StatisticDTO> monthlyStats = year != null && !year.isEmpty()
+                ? StatisticDTO.getByYear(allStats, year)
+                : allStats;
+
+        // Calculer les années disponibles
+        Set<String> availableYears = new HashSet<>();
+        if (allStats != null) {
+            for (StatisticDTO stat : allStats) {
+                if (stat != null && stat.getMonth() != null) {
+                    availableYears.add(stat.getMonth().substring(0, 4));
+                }
+            }
+        }
+        // Préparer les données pour le graphique
+            List<String> months = monthlyStats.stream()
+                    .map(StatisticDTO::getMonth)
+                    .collect(Collectors.toList());
+            List<Double> grossPay = monthlyStats.stream()
+                    .map(stat -> stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0)
+                    .collect(Collectors.toList());
+            List<Double> deductions = monthlyStats.stream()
+                    .map(stat -> stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0)
+                    .collect(Collectors.toList());
+            List<Double> netPay = monthlyStats.stream()
+                    .map(stat -> stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0)
+                    .collect(Collectors.toList());
+
+            ChartData chartData = new ChartData(months, grossPay, deductions, netPay);
+        // Ajouter les attributs au modèle
+        model.addAttribute("monthlyStats", monthlyStats);
+        model.addAttribute("availableYears", availableYears);
+        model.addAttribute("selectedYear", year);
+        model.addAttribute("chartData", chartData);
+        return "statistics";
+    }
+    @GetMapping("/statdetail")
+    public String showstatdetailPage(@RequestParam("month") String month,Model model,HttpSession session,RestTemplate restTemplate) {
+        String token = (String) session.getAttribute("accessToken");
+
+        if (token == null) {
+            return "redirect:/api/auth/";
+        }
+        else{    
+            HrService rhservice = new HrService(restTemplate);
+            List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
+            List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
+            List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
+            List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();   
+            for(int i=0;i<employlist.size();i++){
+            employlist.get(i).setSalarySlip(salaryslip);
+                for(int a=0;a<employlist.get(i).getSalarySlip().size();a++){
+                employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
+                }
+            }
+            StatisticDTO stat=StatisticDTO.getbymonth(statistics, month);
+            List<EmployeeDTO> emplyeeconcerned=EmployeeDTO.getByPeriod(employlist, month);
+            model.addAttribute("concernedEmployees", emplyeeconcerned);
+            model.addAttribute("stat",stat);
+            return "stat_details";
+        }
     }
 }
