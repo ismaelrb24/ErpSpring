@@ -21,10 +21,13 @@ import jakarta.servlet.http.HttpSession;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Controller
 @RequestMapping("/api/Hr")
@@ -309,83 +312,241 @@ public class HRController {
         return "salaries";
     }
     @GetMapping("/statistic")
-    public String showStatPage(Model model,HttpSession session,RestTemplate restTemplate) {
+    public String showStatPage(Model model, HttpSession session, RestTemplate restTemplate) {
         try {
-        HrService rhservice = new HrService(restTemplate);
-        List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();
-        Set<String> availableYears = new HashSet<>();
-        if (statistics != null) {
-            for (StatisticDTO stat : statistics) {
-                if (stat != null && stat.getMonth() != null) {
-                    availableYears.add(stat.getMonth().substring(0, 4));
+            HrService rhservice = new HrService(restTemplate);
+            List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();
+            List<EmployeeDTO> employelist = rhservice.getAllHr(session).getEmployees();
+
+            // Log des tailles pour débogage
+            System.out.println("Statistiques size: " + (statistics != null ? statistics.size() : 0));
+            System.out.println("Employés size: " + (employelist != null ? employelist.size() : 0));
+
+            // Obtenir les années disponibles
+            Set<String> availableYears = new HashSet<>();
+            if (statistics != null) {
+                for (StatisticDTO stat : statistics) {
+                    if (stat != null && stat.getMonth() != null) {
+                        availableYears.add(stat.getMonth().substring(0, 4));
+                    }
                 }
             }
-        }
-        // Préparer les données pour le graphique
-            List<String> months = statistics.stream()
-                    .map(StatisticDTO::getMonth)
-                    .collect(Collectors.toList());
-            List<Double> grossPay = statistics.stream()
-                    .map(stat -> stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0)
-                    .collect(Collectors.toList());
-            List<Double> deductions = statistics.stream()
-                    .map(stat -> stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0)
-                    .collect(Collectors.toList());
-            List<Double> netPay = statistics.stream()
-                    .map(stat -> stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0)
+
+            // Générer tous les mois de 2025
+            List<String> allMonths2025 = IntStream.rangeClosed(1, 12)
+                    .mapToObj(month -> String.format("2025-%02d", month))
                     .collect(Collectors.toList());
 
-            ChartData chartData = new ChartData(months, grossPay, deductions, netPay);
+            // Créer une map pour les données de statistics par mois
+            Map<String, StatisticDTO> statsByMonth = statistics != null
+                    ? statistics.stream()
+                        .filter(stat -> stat.getMonth() != null)
+                        .collect(Collectors.toMap(StatisticDTO::getMonth, stat -> stat))
+                    : new HashMap<>();
 
-         model.addAttribute("monthlyStats", statistics);
-         model.addAttribute("availableYears", availableYears);
-         model.addAttribute("chartData", chartData);
+            // Préparer les données pour le graphique (tous les mois de 2025)
+            List<String> months = new ArrayList<>(allMonths2025);
+            List<Double> grossPay = new ArrayList<>();
+            List<Double> deductions = new ArrayList<>();
+            List<Double> netPay = new ArrayList<>();
+
+            for (String month : allMonths2025) {
+                StatisticDTO stat = statsByMonth.get(month);
+                grossPay.add(stat != null && stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0);
+                deductions.add(stat != null && stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0);
+                netPay.add(stat != null && stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0);
+            }
+
+            // Récupérer les ComponentStatDTO
+            List<ComponentStatDTO> componentStats = rhservice.getAllHr(session).getComponentstats();
+            System.out.println("Taille componentStats: " + (componentStats != null ? componentStats.size() : 0));
+            if (componentStats != null) {
+                for (int i = 0; i < componentStats.size(); i++) {
+                    System.out.println("List: " + componentStats.get(i).getComponentName() + ", Month: " + 
+                                       componentStats.get(i).getMonth() + ", Total: " + componentStats.get(i).getTotal());
+                }
+            } else {
+                System.out.println("componentStats est null");
+            }
+
+            // Regrouper ComponentStat par mois et composant
+            Map<String, Map<String, Double>> componentTotalsByMonth = new HashMap<>();
+            if (componentStats != null) {
+                for (ComponentStatDTO stat : componentStats) {
+                    if (stat.getMonth() != null && stat.getComponentName() != null && stat.getTotal() != null) {
+                        componentTotalsByMonth
+                            .computeIfAbsent(stat.getMonth(), k -> new HashMap<>())
+                            .merge(stat.getComponentName(), stat.getTotal(), Double::sum);
+                    }
+                }
+            }
+
+            // Préparer les données des composants pour le graphique
+            Set<String> componentNames = componentTotalsByMonth.values().stream()
+                    .flatMap(map -> map.keySet().stream())
+                    .collect(Collectors.toSet());
+            Map<String, List<Double>> componentData = new HashMap<>();
+            for (String componentName : componentNames) {
+                List<Double> monthlyTotals = new ArrayList<>();
+                for (String month : allMonths2025) {
+                    Double total = componentTotalsByMonth.getOrDefault(month, new HashMap<>())
+                            .getOrDefault(componentName, 0.0);
+                    monthlyTotals.add(total);
+                }
+                componentData.put(componentName, monthlyTotals);
+            }
+            System.out.println("ComponentNames: " + componentNames);
+            System.out.println("ComponentData size: " + componentData.size());
+
+            // Regrouper ComponentStat par mois pour la table
+            Map<String, List<ComponentStatDTO>> componentStatsByMonth = componentStats != null
+                    ? componentStats.stream()
+                        .collect(Collectors.groupingBy(ComponentStatDTO::getMonth))
+                    : new HashMap<>();
+            System.out.println("ComponentStatsByMonth keys: " + componentStatsByMonth.keySet());
+
+            // Créer l'objet ChartData
+            ChartData chartData = new ChartData(months, grossPay, deductions, netPay, componentData);
+
+            model.addAttribute("monthlyStats", statistics);
+            model.addAttribute("componentStatsByMonth", componentStatsByMonth);
+            model.addAttribute("availableYears", availableYears);
+            model.addAttribute("chartData", chartData);
+
         } catch (Exception e) {
-        model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
+            System.err.println("Erreur dans showStatPage: " + e.getMessage());
+            e.printStackTrace();
+            model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
         }
 
         return "statistics";
     }
     @GetMapping("/searchstat")
-    public String getStatistics(Model model, @RequestParam(value = "year", required = false) String year,HttpSession session
-    ,RestTemplate restTemplate) {
-        
-        HrService rhservice = new HrService(restTemplate);
-        List<StatisticDTO> allStats = rhservice.getAllHr(session).getStatistics(); 
-        // Filtrer les statistiques par année en utilisant StatisticDTO.getByYear
-        List<StatisticDTO> monthlyStats = year != null && !year.isEmpty()
-                ? StatisticDTO.getByYear(allStats, year)
-                : allStats;
+     public String getStatistics(Model model, 
+                             @RequestParam(value = "year", required = false) String year, 
+                             HttpSession session, 
+                             RestTemplate restTemplate) {
+        try {
+            HrService rhservice = new HrService(restTemplate);
+            List<StatisticDTO> allStats = rhservice.getAllHr(session).getStatistics();
 
-        // Calculer les années disponibles
-        Set<String> availableYears = new HashSet<>();
-        if (allStats != null) {
-            for (StatisticDTO stat : allStats) {
-                if (stat != null && stat.getMonth() != null) {
-                    availableYears.add(stat.getMonth().substring(0, 4));
+            // Log pour débogage
+            System.out.println("AllStats size: " + (allStats != null ? allStats.size() : 0));
+
+            // Filtrer les statistiques par année
+            List<StatisticDTO> monthlyStats = year != null && !year.isEmpty()
+                    ? StatisticDTO.getByYear(allStats, year)
+                    : allStats;
+            System.out.println("MonthlyStats size: " + (monthlyStats != null ? monthlyStats.size() : 0));
+
+            // Calculer les années disponibles
+            Set<String> availableYears = new HashSet<>();
+            if (allStats != null) {
+                for (StatisticDTO stat : allStats) {
+                    if (stat != null && stat.getMonth() != null) {
+                        availableYears.add(stat.getMonth().substring(0, 4));
+                    }
                 }
             }
-        }
-        // Préparer les données pour le graphique
-            List<String> months = monthlyStats.stream()
-                    .map(StatisticDTO::getMonth)
-                    .collect(Collectors.toList());
-            List<Double> grossPay = monthlyStats.stream()
-                    .map(stat -> stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0)
-                    .collect(Collectors.toList());
-            List<Double> deductions = monthlyStats.stream()
-                    .map(stat -> stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0)
-                    .collect(Collectors.toList());
-            List<Double> netPay = monthlyStats.stream()
-                    .map(stat -> stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0)
+
+            // Déterminer l'année à utiliser pour le graphique
+            String chartYear = year != null && !year.isEmpty() ? year : "2025"; // Par défaut 2025
+
+            // Générer tous les mois pour l'année sélectionnée
+            List<String> allMonths = IntStream.rangeClosed(1, 12)
+                    .mapToObj(month -> String.format("%s-%02d", chartYear, month))
                     .collect(Collectors.toList());
 
-            ChartData chartData = new ChartData(months, grossPay, deductions, netPay);
-        // Ajouter les attributs au modèle
-        model.addAttribute("monthlyStats", monthlyStats);
-        model.addAttribute("availableYears", availableYears);
-        model.addAttribute("selectedYear", year);
-        model.addAttribute("chartData", chartData);
+            // Créer une map pour les données de monthlyStats par mois
+            Map<String, StatisticDTO> statsByMonth = monthlyStats != null
+                    ? monthlyStats.stream()
+                        .filter(stat -> stat.getMonth() != null)
+                        .collect(Collectors.toMap(StatisticDTO::getMonth, stat -> stat))
+                    : new HashMap<>();
+
+            // Préparer les données pour le graphique (tous les mois de l'année)
+            List<String> months = new ArrayList<>(allMonths);
+            List<Double> grossPay = new ArrayList<>();
+            List<Double> deductions = new ArrayList<>();
+            List<Double> netPay = new ArrayList<>();
+
+            for (String month : allMonths) {
+                StatisticDTO stat = statsByMonth.get(month);
+                grossPay.add(stat != null && stat.getTotalGrossPay() != null ? stat.getTotalGrossPay() : 0.0);
+                deductions.add(stat != null && stat.getTotalDeductions() != null ? stat.getTotalDeductions() : 0.0);
+                netPay.add(stat != null && stat.getTotalNetPay() != null ? stat.getTotalNetPay() : 0.0);
+            }
+
+            // Récupérer les ComponentStatDTO
+            List<ComponentStatDTO> componentStats = rhservice.getAllHr(session).getComponentstats();
+            System.out.println("Taille componentStats: " + (componentStats != null ? componentStats.size() : 0));
+            if (componentStats != null) {
+                for (int i = 0; i < componentStats.size(); i++) {
+                    System.out.println("List: " + componentStats.get(i).getComponentName() + ", Month: " + 
+                                       componentStats.get(i).getMonth() + ", Total: " + componentStats.get(i).getTotal());
+                }
+            } else {
+                System.out.println("componentStats est null");
+            }
+
+            // Filtrer ComponentStatDTO par année
+            List<ComponentStatDTO> monthlycomponent = year != null && !year.isEmpty()
+                    ? ComponentStatDTO.getByYear(componentStats, year)
+                    : componentStats;
+            System.out.println("MonthlyComponent size: " + (monthlycomponent != null ? monthlycomponent.size() : 0));
+
+            // Regrouper ComponentStat par mois et composant pour le graphique
+            Map<String, Map<String, Double>> componentTotalsByMonth = new HashMap<>();
+            if (monthlycomponent != null) {
+                for (ComponentStatDTO stat : monthlycomponent) {
+                    if (stat.getMonth() != null && stat.getComponentName() != null && stat.getTotal() != null) {
+                        componentTotalsByMonth
+                            .computeIfAbsent(stat.getMonth(), k -> new HashMap<>())
+                            .merge(stat.getComponentName(), stat.getTotal(), Double::sum);
+                    }
+                }
+            }
+
+            // Préparer les données des composants pour le graphique
+            Set<String> componentNames = componentTotalsByMonth.values().stream()
+                    .flatMap(map -> map.keySet().stream())
+                    .collect(Collectors.toSet());
+            Map<String, List<Double>> componentData = new HashMap<>();
+            for (String componentName : componentNames) {
+                List<Double> monthlyTotals = new ArrayList<>();
+                for (String month : allMonths) {
+                    Double total = componentTotalsByMonth.getOrDefault(month, new HashMap<>())
+                            .getOrDefault(componentName, 0.0);
+                    monthlyTotals.add(total);
+                }
+                componentData.put(componentName, monthlyTotals);
+            }
+            System.out.println("ComponentNames: " + componentNames);
+            System.out.println("ComponentData size: " + componentData.size());
+
+            // Regrouper ComponentStat par mois pour la table
+            Map<String, List<ComponentStatDTO>> componentStatsByMonth = monthlycomponent != null
+                    ? monthlycomponent.stream()
+                        .collect(Collectors.groupingBy(ComponentStatDTO::getMonth))
+                    : new HashMap<>();
+            System.out.println("ComponentStatsByMonth keys: " + componentStatsByMonth.keySet());
+
+            // Créer l'objet ChartData
+            ChartData chartData = new ChartData(months, grossPay, deductions, netPay, componentData);
+
+            // Ajouter les attributs au modèle
+            model.addAttribute("monthlyStats", monthlyStats);
+            model.addAttribute("availableYears", availableYears);
+            model.addAttribute("componentStatsByMonth", componentStatsByMonth);
+            model.addAttribute("selectedYear", year);
+            model.addAttribute("chartData", chartData);
+
+        } catch (Exception e) {
+            System.err.println("Erreur dans getStatistics: " + e.getMessage());
+            e.printStackTrace();
+            model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
+        }
+
         return "statistics";
     }
     @GetMapping("/statdetail")

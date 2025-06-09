@@ -1,22 +1,4 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salary Statistics</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" th:href="@{/css/navbar.css}">
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <style>
-        .collapse-tables { padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; }
-        .detail-btn { cursor: pointer; }
-        .collapse-row td { padding: 0; border: none; padding: 0 }
-    </style>
-</head>
-<body>
-    <script type="text/javascript">
+<script type="text/javascript">
         var gk_isXlsx = false;
         var gk_xlsxFileLookup = {};
         var gk_fileData = {};
@@ -55,7 +37,24 @@
         }
         return gk_fileData[filename] || "";
         }
-        </script>
+        </script><!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salary Statistics</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .collapse-tables { padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; }
+        .detail-btn { cursor: pointer; }
+        .collapse-row td { padding: 0; border: none; }
+    </style>
+</head>
+<body>
     <div class="sidebar">
         <h4 class="text-center" style="color:blue;">ErpNext</h4>
         <a th:href="@{/api/auth/accueil}">Accueil</a>
@@ -94,7 +93,7 @@
 
             <!-- Graphique -->
             <div class="mb-5" th:if="${chartData != null and not #lists.isEmpty(chartData.months)}">
-                <h3>Evolution of Salaries and Components</h3>
+                <h3>Evolution of Salaries</h3>
                 <canvas id="salaryChart" width="300" height="150"></canvas>
             </div>
 
@@ -171,7 +170,6 @@
             const grossPay = /*[[${chartData?.grossPay}]]*/ [];
             const deductions = /*[[${chartData?.deductions}]]*/ [];
             const netPay = /*[[${chartData?.netPay}]]*/ [];
-            const componentData = /*[[${chartData?.componentData}]]*/ {};
 
             if (months.length > 0) {
                 // Formater les mois en "MMM YYYY"
@@ -180,60 +178,38 @@
                     return date.toLocaleString('default', { month: 'short', year: 'numeric' });
                 });
 
-                // Définir une palette de couleurs pour les composants
-                const componentColors = [
-                    '#FFCE56', '#36A2EB', '#FF6384', '#4BC0C0', '#9966FF',
-                    '#FF9F40', '#E7E9ED', '#C9CBCF', '#7BC043', '#F15A29'
-                ];
-
-                // Créer les datasets pour le graphique
-                const datasets = [
-                    {
-                        label: 'Total Gross Pay',
-                        data: grossPay,
-                        borderColor: '#4BC0C0',
-                        backgroundColor: '#4BC0C0',
-                        fill: false,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Total Deductions',
-                        data: deductions,
-                        borderColor: '#FF6384',
-                        backgroundColor: '#FF6384',
-                        fill: false,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Total Net Pay',
-                        data: netPay,
-                        borderColor: '#36A2EB',
-                        backgroundColor: '#36A2EB',
-                        fill: false,
-                        tension: 0.3
-                    }
-                ];
-
-                // Ajouter les datasets pour chaque composant
-                Object.keys(componentData).forEach((componentName, index) => {
-                    datasets.push({
-                        label: componentName,
-                        data: componentData[componentName],
-                        borderColor: componentColors[index % componentColors.length],
-                        backgroundColor: componentColors[index % componentColors.length],
-                        fill: false,
-                        tension: 0.3,
-                        borderDash: [5, 5] // Ligne en pointillés pour différencier
-                    });
-                });
-
                 // Configurer le graphique
                 const ctx = document.getElementById('salaryChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: formattedMonths,
-                        datasets: datasets
+                        datasets: [
+                            {
+                                label: 'Total Gross Pay',
+                                data: grossPay,
+                                borderColor: '#4BC0C0',
+                                backgroundColor: '#4BC0C0',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Total Deductions',
+                                data: deductions,
+                                borderColor: '#FF6384',
+                                backgroundColor: '#FF6384',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Total Net Pay',
+                                data: netPay,
+                                borderColor: '#36A2EB',
+                                backgroundColor: '#36A2EB',
+                                fill: false,
+                                tension: 0.3
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -249,7 +225,7 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Monthly Salary and Component Evolution',
+                                text: 'Monthly Salary Evolution',
                                 color: '#333',
                                 font: {
                                     size: 14
@@ -314,6 +290,6 @@
     </script>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
