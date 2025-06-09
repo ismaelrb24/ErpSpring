@@ -20,6 +20,9 @@ public class AllHRDataDTO {
     @JsonProperty("statistic")
     private List<StatisticDTO> statistics;
     
+    @JsonProperty("component_stats")
+    private List<ComponentStatDTO> componentstats;
+    
     // Getters and Setters
     public List<EmployeeDTO> getEmployees() { return employees; }
     public void setEmployees(List<EmployeeDTO> employees) { this.employees = employees; }
@@ -47,5 +50,10 @@ public class AllHRDataDTO {
     public void setStatistics(List<StatisticDTO> statistics) {
         this.statistics = statistics;
     }
-    
+    public List<ComponentStatDTO> getComponentstats() {
+        return componentstats;
+    }
+    public void setComponentstats(List<ComponentStatDTO> componentstats) {
+        this.componentstats = componentstats;
+    }
 }

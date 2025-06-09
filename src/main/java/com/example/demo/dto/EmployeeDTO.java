@@ -7,11 +7,14 @@ import jakarta.servlet.http.HttpSession;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
+
 import org.springframework.web.client.RestTemplate;
 
 import com.example.demo.model.Statistic;
