@@ -41,6 +41,9 @@ public class SalarySlipDTO {
     private Double totalEarnings;
     
     private List<SalaryDetailDTO> correspond;
+    
+    private List<SalaryDetailDTO> deductions;
+    
     // Getters and Setters
     public String getName() { return name; }
     public void setName(String name) { 
@@ -111,8 +114,23 @@ public class SalarySlipDTO {
     public List<SalaryDetailDTO> getCorrespond() {
         return correspond;
     }
+    public List<SalaryDetailDTO> getDeductions() {
+        return deductions;
+    }
     public void setCorrespond(List<SalaryDetailDTO> alllist) {
-        this.correspond=SalaryDetailDTO.getbyslip(alllist, this.name);
+        List<SalaryDetailDTO> details=SalaryDetailDTO.getbyslip(alllist, this.name);
+        List<SalaryDetailDTO> earning=new ArrayList<>();
+        List<SalaryDetailDTO> deductions=new ArrayList<>();
+        for(int i=0;i<details.size();i++){
+            if(details.get(i).getParentfield().equals("earnings")){
+                earning.add(details.get(i));
+            }
+            else{
+                deductions.add(details.get(i));
+            }
+        }
+        this.correspond=earning;
+        this.deductions=deductions;
     }
     public static List<SalarySlipDTO> getbyemployee(List<SalarySlipDTO> alllist,String employee){
         List<SalarySlipDTO> list=new ArrayList<>();

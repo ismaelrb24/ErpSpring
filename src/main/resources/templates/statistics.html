@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salary Statistics</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/navbar.css}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <h4 class="text-center" style="color:blue;">ErpNext</h4>
+        <a th:href="@{/api/auth/accueil}">Accueil</a>
+        <a th:href="@{/api/Hr/employeeList}">Employees List</a>
+        <a th:href="@{/api/Hr/salaries}">HR All</a>
+        <a th:href="@{/api/Hr/statistic}">HR Stat</a>
+        <a th:href="@{/fournisseurs}">Supplier List</a>
+        <a th:href="@{/accounting}">Accounting</a>
+        <a th:href="@{/api/hrms-csv-import/}">Import</a>
+        <a th:href="@{/api/auth/logout}">Logout</a>
+    </div>
+    <div class="content">
+        <div class="container mt-5">
+            <h1 class="mb-4">Salary Statistics</h1>
+
+            <!-- Message d'erreur -->
+            <div th:if="${error}" class="alert alert-danger">
+                <span th:text="${error}"></span>
+            </div>
+
+            <!-- Sélecteur d'année -->
+            <form th:action="@{/api/Hr/searchstat}" method="get" class="mb-4">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="yearSelect" class="form-label">Select Year:</label>
+                        <select id="yearSelect" name="year" class="form-select" onchange="this.form.submit()">
+                            <option value="">All Years</option>
+                            <option th:each="year : ${availableYears}" 
+                                    th:value="${year}" 
+                                    th:text="${year}" 
+                                    th:selected="${year == selectedYear}"></option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Graphique -->
+            <div class="mb-5" th:if="${chartData != null and not #lists.isEmpty(chartData.months)}">
+                <h3>Evolution of Salaries</h3>
+                <canvas id="salaryChart" width="300" height="150"></canvas>
+            </div>
+
+            <!-- Tableau des statistiques -->
+            <div th:if="${monthlyStats != null and not #lists.isEmpty(monthlyStats)}">
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Month</th>
+                            <th>Total Gross Pay</th>
+                            <th>Total Deductions</th>
+                            <th>Total Net Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="stat : ${monthlyStats}">
+                            <td><a th:href="@{/api/Hr/statdetail(month=${stat.month})}"
+                        th:text="${stat.month}"></a></td>
+                            <td th:text="${stat.totalGrossPay}"></td>
+                            <td th:text="${stat.totalDeductions}"></td>
+                            <td th:text="${stat.totalNetPay}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${monthlyStats == null or #lists.isEmpty(monthlyStats)}" class="alert alert-info">
+                No statistics available for the selected year.
+            </div>
+        </div>
+    </div>
+
+    <!-- Script pour le graphique -->
+    <script th:inline="javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            // Vérifier si les données du graphique existent
+            const months = /*[[${chartData?.months}]]*/ [];
+            const grossPay = /*[[${chartData?.grossPay}]]*/ [];
+            const deductions = /*[[${chartData?.deductions}]]*/ [];
+            const netPay = /*[[${chartData?.netPay}]]*/ [];
+
+            if (months.length > 0) {
+                // Formater les mois en "MMM YYYY"
+                const formattedMonths = months.map(month => {
+                    const date = new Date(month + '-01');
+                    return date.toLocaleString('default', { month: 'short', year: 'numeric' });
+                });
+
+                // Configurer le graphique
+                const ctx = document.getElementById('salaryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: formattedMonths,
+                        datasets: [
+                            {
+                                label: 'Total Gross Pay',
+                                data: grossPay,
+                                borderColor: '#4BC0C0',
+                                backgroundColor: '#4BC0C0',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Total Deductions',
+                                data: deductions,
+                                borderColor: '#FF6384',
+                                backgroundColor: '#FF6384',
+                                fill: false,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Total Net Pay',
+                                data: netPay,
+                                borderColor: '#36A2EB',
+                                backgroundColor: '#36A2EB',
+                                fill: false,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#333',
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Monthly Salary Evolution',
+                                color: '#333',
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Month',
+                                    color: '#333',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                ticks: {
+                                    color: '#333',
+                                    font: {
+                                        size: 10
+                                    }
+                                },
+                                grid: {
+                                    color: '#e0e0e0'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Amount',
+                                    color: '#333',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                ticks: {
+                                    color: '#333',
+                                    font: {
+                                        size: 10
+                                    },
+                                    callback: function(value) {
+                                        return value.toFixed(2);
+                                    }
+                                },
+                                grid: {
+                                    color: '#e0e0e0'
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

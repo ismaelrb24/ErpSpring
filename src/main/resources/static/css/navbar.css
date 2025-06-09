@@ -1,9 +1,10 @@
-/* styles.css */
+/* navbar.css */
 
 body {
     display: flex;
     height: 100vh;
     margin: 0;
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .sidebar {
@@ -11,6 +12,12 @@ body {
     background-color: #343a40;
     color: white;
     padding-top: 20px;
+    position: fixed; /* Fix the sidebar to the viewport */
+    top: 0; /* Align to the top */
+    left: 0; /* Align to the left */
+    height: 100%; /* Full height of the viewport */
+    overflow-y: auto; /* Allow scrolling within sidebar if content overflows */
+    z-index: 1000; /* Ensure sidebar stays above other content */
 }
 
 .sidebar a {
@@ -27,4 +34,6 @@ body {
 .content {
     flex: 1;
     padding: 20px;
+    margin-left: 220px; /* Offset content to avoid overlap with fixed sidebar */
+    overflow-y: auto; /* Allow content to scroll vertically */
 }

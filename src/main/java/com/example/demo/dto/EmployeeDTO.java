@@ -7,10 +7,14 @@ import jakarta.servlet.http.HttpSession;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import org.springframework.web.client.RestTemplate;
 
+import com.example.demo.model.Statistic;
 import com.example.demo.service.*;
 
 public class EmployeeDTO {
@@ -212,35 +216,35 @@ public class EmployeeDTO {
         }
         return employee;
     }
-    public static List<EmployeeDTO> filterEmployeesByMonth(String month,RestTemplate restTemplate,HttpSession session) {
-
-        List<EmployeeDTO> employeeconcerned=new ArrayList<>();
-        List<SalarySlipDTO> salaryconcerned=new ArrayList<>();
-        HrService rhservice = new HrService(restTemplate);
-        List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
-        List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
-        List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
-        YearMonth yearMonth = YearMonth.parse(month);
-        LocalDate startOfMonth = yearMonth.atDay(1);
-        LocalDate endOfMonth = yearMonth.atEndOfMonth();
-        if (month == null || month.isEmpty()) {
-            return employlist;
-        }
-        for(int i=0;i<employlist.size();i++){
-            employlist.get(i).setSalarySlip(salaryslip);
-            for(int a=0;a<employlist.get(i).getSalarySlip().size();a++){
-                employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
-                
-                if(!employlist.get(i).getSalarySlip().get(a).getStartDate().isBefore(startOfMonth) &&
-                !employlist.get(i).getSalarySlip().get(a).getEndDate().isAfter(endOfMonth)){
-                    salaryconcerned.add(employlist.get(i).getSalarySlip().get(a));        
-                    employlist.get(i).salarySlip=salaryconcerned;
-                    employeeconcerned.add(employlist.get(i));
-                }
+    public static List<EmployeeDTO> filterEmployeesByMonth(String month, RestTemplate restTemplate, HttpSession session) {
+    List<EmployeeDTO> employeeconcerned = new ArrayList<>();
+    HrService rhservice = new HrService(restTemplate);
+    List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
+    List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
+    List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
+    YearMonth yearMonth = YearMonth.parse(month);
+    LocalDate startOfMonth = yearMonth.atDay(1);
+    LocalDate endOfMonth = yearMonth.atEndOfMonth();
+    if (month == null || month.isEmpty()) {
+        return employlist;
+    }
+    for (int i = 0; i < employlist.size(); i++) {
+        List<SalarySlipDTO> salaryconcerned = new ArrayList<>(); 
+        employlist.get(i).setSalarySlip(salaryslip);
+        for (int a = 0; a < employlist.get(i).getSalarySlip().size(); a++) {
+            employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
+            if (!employlist.get(i).getSalarySlip().get(a).getStartDate().isBefore(startOfMonth) &&
+                !employlist.get(i).getSalarySlip().get(a).getEndDate().isAfter(endOfMonth)) {
+                salaryconcerned.add(employlist.get(i).getSalarySlip().get(a));        
             }
         }
-        return employeeconcerned;
+        if (!salaryconcerned.isEmpty()) {
+            employlist.get(i).setSalarySlip(salaryconcerned);
+            employeeconcerned.add(employlist.get(i));
+        }
     }
+    return employeeconcerned;
+}
     public static Double getotalNetPay(List<EmployeeDTO> alllist){
         Double totalnet=0.0;
         for(int i=0;i<alllist.size();i++){
@@ -270,5 +274,29 @@ public class EmployeeDTO {
             }
         }
         return totaldeduction;
+    }
+    public  static List<EmployeeDTO> getByPeriod(List<EmployeeDTO> allList, String targetMonth) {
+        List<EmployeeDTO> concerned = new ArrayList<>();
+        if (allList == null || targetMonth == null) {
+            return concerned; 
+        }
+        for (EmployeeDTO employee : allList) {
+            if (employee != null && employee.getSalarySlip() != null) {
+                for (SalarySlipDTO slip : employee.getSalarySlip()) {
+                    if (slip != null && slip.getStartDate() != null) {
+                        String slipMonth = slip.getStartDate().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                        if (targetMonth.equals(slipMonth)) {
+                            List<SalarySlipDTO> salaryconcerned=new ArrayList<>();
+                            salaryconcerned.add(slip);
+                            employee.setSalarySlip(salaryconcerned);
+                            concerned.add(employee);
+                            break; 
+                        }
+                    }
+                }
+            }
+        }
+
+        return concerned;
     }
 }

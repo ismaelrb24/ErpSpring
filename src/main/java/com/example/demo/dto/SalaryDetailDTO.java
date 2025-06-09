@@ -14,7 +14,10 @@ public class SalaryDetailDTO {
 
     @JsonProperty("parent")
     private String parent;
-
+     
+    @JsonProperty("parentfield")
+    private String parentfield;
+     
     // Getters and Setters
     public String getSalaryComponent() { 
         return salaryComponent; 
@@ -33,6 +36,12 @@ public class SalaryDetailDTO {
     }
     public void setParent(String parent) {
         this.parent = parent;
+    }
+    public String getParentfield() {
+        return parentfield;
+    }
+    public void setParentfield(String parentfield) {
+        this.parentfield = parentfield;
     }
     public static List<SalaryDetailDTO> getbyslip(List<SalaryDetailDTO> alllist,String salaryslipname){
         List<SalaryDetailDTO> list=new ArrayList<>();
