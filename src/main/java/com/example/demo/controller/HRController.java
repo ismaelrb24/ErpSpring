@@ -7,12 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -28,61 +26,99 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 @Controller
 @RequestMapping("/api/Hr")
 public class HRController {
-    @GetMapping("/employeeList")
-    public String showEmployeePage(Model model,HttpSession session,RestTemplate restTemplate) {
-        String token = (String) session.getAttribute("accessToken");
-
-        if (token == null) {
-            return "redirect:/api/auth/";
-        }
-        else{    
-            HrService rhservice = new HrService(restTemplate);
-            List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
-            List<GenderDTO> genders = rhservice.getAllHr(session).getGenders();
-            model.addAttribute("employees", employlist);
-            model.addAttribute("genders", genders);
-            return "employees";
-        }
+@GetMapping("/employeeList")
+public String showEmployeePage(Model model, 
+                               HttpSession session, 
+                               RestTemplate restTemplate,
+                               @RequestParam(defaultValue = "0") int page,
+                               @RequestParam(defaultValue = "10") int size) {
+    String token = (String) session.getAttribute("accessToken");
+    if (token == null) {
+        return "redirect:/api/auth/";
     }
-    @GetMapping("/searchEmployees")
-    public String searchEmployees(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String gender,
-            @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate,
-            Model model,
-            HttpSession session,RestTemplate restTemplate) {
-        
-        String token = (String) session.getAttribute("accessToken");
 
-        if (token == null) {
-            return "redirect:/api/auth/";
+    try {
+        HrService rhservice = new HrService(restTemplate);
+        List<EmployeeDTO> allEmployees = rhservice.getAllHr(session).getEmployees();
+        List<GenderDTO> genders = rhservice.getAllHr(session).getGenders();
+
+        // Gestion de la pagination
+        int totalRecords = allEmployees != null ? allEmployees.size() : 0;
+        int totalPages = (int) Math.ceil((double) totalRecords / size);
+        int startIndex = page * size;
+        int endIndex = Math.min(startIndex + size, totalRecords);
+
+        if (startIndex >= totalRecords && totalRecords > 0) {
+            page = totalPages - 1;
+            startIndex = page * size;
+            endIndex = Math.min(startIndex + size, totalRecords);
+        } else if (totalRecords == 0) {
+            startIndex = 0;
+            endIndex = 0;
         }
-        // Récupérer la liste des employés et genres
+
+        List<EmployeeDTO> employlist = allEmployees != null && !allEmployees.isEmpty()
+            ? allEmployees.subList(startIndex, endIndex)
+            : new ArrayList<>();
+
+        model.addAttribute("employees", employlist);
+        model.addAttribute("genders", genders);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("pageSize", size);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("totalRecords", totalRecords);
+        model.addAttribute("isSearch", false); // Indique que ce n'est pas une recherche
+        model.addAttribute("search", null);
+        model.addAttribute("gender", null);
+        model.addAttribute("startDate", null);
+        model.addAttribute("endDate", null);
+
+    } catch (Exception e) {
+        System.err.println("Erreur dans showEmployeePage: " + e.getMessage());
+        model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
+    }
+
+    return "employees";
+}
+    @GetMapping("/searchEmployees")
+public String searchEmployees(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) String gender,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size, 
+        Model model,
+        HttpSession session,
+        RestTemplate restTemplate) {
+    
+    String token = (String) session.getAttribute("accessToken");
+    if (token == null) {
+        return "redirect:/api/auth/";
+    }
+
+    LocalDate start = null;
+    LocalDate end = null;
+    try {
+        if (startDate != null && !startDate.trim().isEmpty()) {
+            start = LocalDate.parse(startDate);
+        }
+        if (endDate != null && !endDate.trim().isEmpty()) {
+            end = LocalDate.parse(endDate);
+        }
+    } catch (DateTimeParseException e) {
+        model.addAttribute("error", "Format de date invalide. Utilisez AAAA-MM-JJ.");
+    }
+
+    try {
         HrService rhservice = new HrService(restTemplate);
         List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
         List<GenderDTO> genders = rhservice.getAllHr(session).getGenders();
 
-
-        // Convertir les dates en LocalDate
-        LocalDate start = null;
-        LocalDate end = null;
-        try {
-            if (startDate != null && !startDate.trim().isEmpty()) {
-                start = LocalDate.parse(startDate);
-            }
-            if (endDate != null && !endDate.trim().isEmpty()) {
-                end = LocalDate.parse(endDate);
-            }
-        } catch (DateTimeParseException e) {
-            model.addAttribute("error", "Format de date invalide. Utilisez AAAA-MM-JJ.");
-        }
-
-        // Filtrer les employés avec searchByCriteria
+        // Filtrer les employés
         if (search != null || gender != null || start != null || end != null) {
             final String finalSearch = search;
             final String finalGender = gender;
@@ -93,16 +129,46 @@ public class HRController {
                     .collect(Collectors.toList());
         }
 
-        model.addAttribute("employees", employlist);
+        // Gestion de la pagination
+        int totalRecords = employlist != null ? employlist.size() : 0;
+        int totalPages = (int) Math.ceil((double) totalRecords / size);
+        int startIndex = page * size;
+        int endIndex = Math.min(startIndex + size, totalRecords);
+
+        if (startIndex >= totalRecords && totalRecords > 0) {
+            page = totalPages - 1;
+            startIndex = page * size;
+            endIndex = Math.min(startIndex + size, totalRecords);
+        } else if (totalRecords == 0) {
+            startIndex = 0;
+            endIndex = 0;
+        }
+
+        List<EmployeeDTO> emp = employlist != null && !employlist.isEmpty()
+            ? employlist.subList(startIndex, endIndex)
+            : new ArrayList<>();
+
+        model.addAttribute("employees", emp);
         model.addAttribute("genders", genders);
         model.addAttribute("search", search);
         model.addAttribute("gender", gender);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
-        return "employees";
+        model.addAttribute("currentPage", page);
+        model.addAttribute("pageSize", size);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("totalRecords", totalRecords);
+        model.addAttribute("isSearch", true); 
+
+    } catch (Exception e) {
+        model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
     }
+
+    return "employees";
+}
     @GetMapping("/fiche")
-    public String showfichePage(@RequestParam("employee") String employee,Model model,HttpSession session,RestTemplate restTemplate) {
+    public String showfichePage(@RequestParam("employee") String employee,Model model,HttpSession session,RestTemplate restTemplate,
+        @RequestParam(defaultValue = "0") int page,@RequestParam(defaultValue = "5") int size) {
         String token = (String) session.getAttribute("accessToken");
 
         if (token == null) {
@@ -118,7 +184,30 @@ public class HRController {
             for(int i=0;i<emplyeeconcerned.getSalarySlip().size();i++){
                 emplyeeconcerned.getSalarySlip().get(i).setCorrespond(salarydetails);
             }
+            // Gestion de la pagination
+            int totalRecords = emplyeeconcerned.getSalarySlip() != null ? emplyeeconcerned.getSalarySlip().size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            List<SalarySlipDTO> slipconrened = emplyeeconcerned.getSalarySlip() != null && !emplyeeconcerned.getSalarySlip().isEmpty()
+                ? emplyeeconcerned.getSalarySlip().subList(startIndex, endIndex)
+                : new ArrayList<>();
             model.addAttribute("employee", emplyeeconcerned);
+            model.addAttribute("slip", slipconrened);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
             return "employee_details";
         }
     }
@@ -264,56 +353,149 @@ public class HRController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
-    @GetMapping("/salaries")
-    public String showSalariesPage(Model model,HttpSession session,RestTemplate restTemplate) {
+     @GetMapping("/salaries")
+    public String showSalariesPage(Model model,
+                                  HttpSession session,
+                                  RestTemplate restTemplate,
+                                  @RequestParam(defaultValue = "0") int page,
+                                  @RequestParam(defaultValue = "5") int size) {
         try {
-        HrService rhservice = new HrService(restTemplate);
-        List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
-        List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
-        List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
-         for(int i=0;i<employlist.size();i++){
-            employlist.get(i).setSalarySlip(salaryslip);
-            for(int a=0;a<employlist.get(i).getSalarySlip().size();a++){
-                employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
+            String token = (String) session.getAttribute("accessToken");
+            if (token == null) {
+                return "redirect:/api/auth/";
             }
-        }
-        Double totalnets=EmployeeDTO.getotalNetPay(employlist);
-        Double totalgross=EmployeeDTO.getotalGrosspay(employlist);
-        Double totaldeductions=EmployeeDTO.getotalDeduction(employlist);
-        System.out.println(employlist.size());
+            HrService rhservice = new HrService(restTemplate);
+            List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
+            List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
+            List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
 
-         model.addAttribute("employees", employlist);
-         model.addAttribute("totalnets", totalnets);
-         model.addAttribute("totalgross", totalgross);
-         model.addAttribute("totaldeductions", totaldeductions);
+            // Associer les fiches de salaire et les détails aux employés
+            for (int i = 0; i < employlist.size(); i++) {
+                employlist.get(i).setSalarySlip(salaryslip);
+                for (int a = 0; a < employlist.get(i).getSalarySlip().size(); a++) {
+                    employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
+                }
+            }
+
+            // Calculer les totaux
+            Double totalnets = EmployeeDTO.getotalNetPay(employlist);
+            Double totalgross = EmployeeDTO.getotalGrosspay(employlist);
+            Double totaldeductions = EmployeeDTO.getotalDeduction(employlist);
+            System.out.println("Employlist size: " + employlist.size());
+
+            // Gestion de la pagination
+            if (page < 0) {
+                page = 0;
+            }
+            int totalRecords = employlist != null ? employlist.size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            // Paginer la liste des employés
+            List<EmployeeDTO> paginatedEmployees = employlist != null && !employlist.isEmpty()
+                    ? employlist.subList(startIndex, endIndex)
+                    : new ArrayList<>();
+
+            // Ajouter les attributs au modèle
+            model.addAttribute("employees", paginatedEmployees);
+            model.addAttribute("totalnets", totalnets);
+            model.addAttribute("totalgross", totalgross);
+            model.addAttribute("totaldeductions", totaldeductions);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
+
         } catch (Exception e) {
+            System.err.println("Erreur dans showSalariesPage: " + e.getMessage());
+            e.printStackTrace();
             model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
         }
 
         return "salaries";
     }
+
     @GetMapping("/searchmounth")
-    public String showSalarieSearch(
-            @RequestParam(required = false) String month,Model model,HttpSession session,RestTemplate restTemplate) {
+    public String showSalarieSearch(@RequestParam(required = false) String month,
+                                   Model model,
+                                   HttpSession session,
+                                   RestTemplate restTemplate,
+                                   @RequestParam(defaultValue = "0") int page,
+                                   @RequestParam(defaultValue = "5") int size) {
         try {
-            List<EmployeeDTO> filteredEmployees=EmployeeDTO.filterEmployeesByMonth(month, restTemplate, session);    
-            Double totalnets=EmployeeDTO.getotalNetPay(filteredEmployees);
-            Double totalgross=EmployeeDTO.getotalGrosspay(filteredEmployees);
-            Double totaldeductions=EmployeeDTO.getotalDeduction(filteredEmployees);
-            model.addAttribute("employees", filteredEmployees);
+            String token = (String) session.getAttribute("accessToken");
+            if (token == null) {
+                return "redirect:/api/auth/";
+            }
+            List<EmployeeDTO> filteredEmployees = EmployeeDTO.filterEmployeesByMonth(month, restTemplate, session);    
+            
+            // Calculer les totaux
+            Double totalnets = EmployeeDTO.getotalNetPay(filteredEmployees);
+            Double totalgross = EmployeeDTO.getotalGrosspay(filteredEmployees);
+            Double totaldeductions = EmployeeDTO.getotalDeduction(filteredEmployees);
+            System.out.println("FilteredEmployees size: " + filteredEmployees.size());
+
+            // Gestion de la pagination
+            if (page < 0) {
+                page = 0;
+            }
+            int totalRecords = filteredEmployees != null ? filteredEmployees.size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            // Paginer la liste des employés filtrés
+            List<EmployeeDTO> paginatedEmployees = filteredEmployees != null && !filteredEmployees.isEmpty()
+                    ? filteredEmployees.subList(startIndex, endIndex)
+                    : new ArrayList<>();
+
+            // Ajouter les attributs au modèle
+            model.addAttribute("employees", paginatedEmployees);
             model.addAttribute("month", month);
             model.addAttribute("totalnets", totalnets);
             model.addAttribute("totalgross", totalgross);
             model.addAttribute("totaldeductions", totaldeductions);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
+
         } catch (Exception e) {
+            System.err.println("Erreur dans showSalarieSearch: " + e.getMessage());
+            e.printStackTrace();
             model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
         }
 
         return "salaries";
     }
-    @GetMapping("/statistic")
-    public String showStatPage(Model model, HttpSession session, RestTemplate restTemplate) {
+   @GetMapping("/statistic")
+    public String showStatPage(Model model, HttpSession session, RestTemplate restTemplate,
+                               @RequestParam(defaultValue = "0") int page,
+                               @RequestParam(defaultValue = "5") int size) {
         try {
+            String token = (String) session.getAttribute("accessToken");
+            if (token == null) {
+                return "redirect:/api/auth/";
+            }
             HrService rhservice = new HrService(restTemplate);
             List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();
             List<EmployeeDTO> employelist = rhservice.getAllHr(session).getEmployees();
@@ -332,7 +514,7 @@ public class HRController {
                 }
             }
 
-            // Générer tous les mois de 2025
+            // Générer tous les mois de 2025 pour le graphique
             List<String> allMonths2025 = IntStream.rangeClosed(1, 12)
                     .mapToObj(month -> String.format("2025-%02d", month))
                     .collect(Collectors.toList());
@@ -405,13 +587,39 @@ public class HRController {
                     : new HashMap<>();
             System.out.println("ComponentStatsByMonth keys: " + componentStatsByMonth.keySet());
 
+            // Gestion de la pagination
+            if (page < 0) {
+                page = 0;
+            }
+            int totalRecords = statistics != null ? statistics.size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            List<StatisticDTO> paginatedStats = statistics != null && !statistics.isEmpty()
+                    ? statistics.subList(startIndex, endIndex)
+                    : new ArrayList<>();
+
             // Créer l'objet ChartData
             ChartData chartData = new ChartData(months, grossPay, deductions, netPay, componentData);
 
-            model.addAttribute("monthlyStats", statistics);
+            model.addAttribute("monthlyStats", paginatedStats);
             model.addAttribute("componentStatsByMonth", componentStatsByMonth);
             model.addAttribute("availableYears", availableYears);
             model.addAttribute("chartData", chartData);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
 
         } catch (Exception e) {
             System.err.println("Erreur dans showStatPage: " + e.getMessage());
@@ -421,12 +629,19 @@ public class HRController {
 
         return "statistics";
     }
+
     @GetMapping("/searchstat")
-     public String getStatistics(Model model, 
-                             @RequestParam(value = "year", required = false) String year, 
-                             HttpSession session, 
-                             RestTemplate restTemplate) {
+    public String getStatistics(Model model, 
+                               @RequestParam(value = "year", required = false) String year,
+                               @RequestParam(defaultValue = "0") int page,
+                               @RequestParam(defaultValue = "5") int size,
+                               HttpSession session, 
+                               RestTemplate restTemplate) {
         try {
+            String token = (String) session.getAttribute("accessToken");
+            if (token == null) {
+                return "redirect:/api/auth/";
+            }
             HrService rhservice = new HrService(restTemplate);
             List<StatisticDTO> allStats = rhservice.getAllHr(session).getStatistics();
 
@@ -449,8 +664,30 @@ public class HRController {
                 }
             }
 
+            // Gestion de la pagination
+            if (page < 0) {
+                page = 0;
+            }
+            int totalRecords = monthlyStats != null ? monthlyStats.size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            List<StatisticDTO> paginatedStats = monthlyStats != null && !monthlyStats.isEmpty()
+                    ? monthlyStats.subList(startIndex, endIndex)
+                    : new ArrayList<>();
+
             // Déterminer l'année à utiliser pour le graphique
-            String chartYear = year != null && !year.isEmpty() ? year : "2025"; // Par défaut 2025
+            String chartYear = year != null && !year.isEmpty() ? year : "2025";
 
             // Générer tous les mois pour l'année sélectionnée
             List<String> allMonths = IntStream.rangeClosed(1, 12)
@@ -535,11 +772,15 @@ public class HRController {
             ChartData chartData = new ChartData(months, grossPay, deductions, netPay, componentData);
 
             // Ajouter les attributs au modèle
-            model.addAttribute("monthlyStats", monthlyStats);
+            model.addAttribute("monthlyStats", paginatedStats);
             model.addAttribute("availableYears", availableYears);
             model.addAttribute("componentStatsByMonth", componentStatsByMonth);
             model.addAttribute("selectedYear", year);
             model.addAttribute("chartData", chartData);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
 
         } catch (Exception e) {
             System.err.println("Erreur dans getStatistics: " + e.getMessage());
@@ -550,28 +791,75 @@ public class HRController {
         return "statistics";
     }
     @GetMapping("/statdetail")
-    public String showstatdetailPage(@RequestParam("month") String month,Model model,HttpSession session,RestTemplate restTemplate) {
+    public String showstatdetailPage(@RequestParam("month") String month,
+                                    Model model,
+                                    HttpSession session,
+                                    RestTemplate restTemplate,
+                                    @RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "5") int size) {
         String token = (String) session.getAttribute("accessToken");
 
         if (token == null) {
             return "redirect:/api/auth/";
         }
-        else{    
+
+        try {
             HrService rhservice = new HrService(restTemplate);
             List<EmployeeDTO> employlist = rhservice.getAllHr(session).getEmployees();
             List<SalarySlipDTO> salaryslip = rhservice.getAllHr(session).getSalarys();
             List<SalaryDetailDTO> salarydetails = rhservice.getAllHr(session).getSalarydetail();
             List<StatisticDTO> statistics = rhservice.getAllHr(session).getStatistics();   
-            for(int i=0;i<employlist.size();i++){
-            employlist.get(i).setSalarySlip(salaryslip);
-                for(int a=0;a<employlist.get(i).getSalarySlip().size();a++){
-                employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
+
+            // Associer les fiches de salaire et les détails aux employés
+            for (int i = 0; i < employlist.size(); i++) {
+                employlist.get(i).setSalarySlip(salaryslip);
+                for (int a = 0; a < employlist.get(i).getSalarySlip().size(); a++) {
+                    employlist.get(i).getSalarySlip().get(a).setCorrespond(salarydetails);
                 }
             }
-            StatisticDTO stat=StatisticDTO.getbymonth(statistics, month);
-            List<EmployeeDTO> emplyeeconcerned=EmployeeDTO.getByPeriod(employlist, month);
-            model.addAttribute("concernedEmployees", emplyeeconcerned);
-            model.addAttribute("stat",stat);
+
+            // Récupérer les statistiques pour le mois
+            StatisticDTO stat = StatisticDTO.getbymonth(statistics, month);
+            // Filtrer les employés pour le mois spécifié
+            List<EmployeeDTO> emplyeeconcerned = EmployeeDTO.getByPeriod(employlist, month);
+
+            // Gestion de la pagination
+            if (page < 0) {
+                page = 0;
+            }
+            int totalRecords = emplyeeconcerned != null ? emplyeeconcerned.size() : 0;
+            int totalPages = (int) Math.ceil((double) totalRecords / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalRecords);
+
+            if (startIndex >= totalRecords && totalRecords > 0) {
+                page = totalPages - 1;
+                startIndex = page * size;
+                endIndex = Math.min(startIndex + size, totalRecords);
+            } else if (totalRecords == 0) {
+                startIndex = 0;
+                endIndex = 0;
+            }
+
+            // Paginer la liste des employés concernés
+            List<EmployeeDTO> paginatedEmployees = emplyeeconcerned != null && !emplyeeconcerned.isEmpty()
+                    ? emplyeeconcerned.subList(startIndex, endIndex)
+                    : new ArrayList<>();
+
+            // Ajouter les attributs au modèle
+            model.addAttribute("concernedEmployees", paginatedEmployees);
+            model.addAttribute("stat", stat);
+            model.addAttribute("month", month);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("pageSize", size);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("totalRecords", totalRecords);
+
+            return "stat_details";
+        } catch (Exception e) {
+            System.err.println("Erreur dans showstatdetailPage: " + e.getMessage());
+            e.printStackTrace();
+            model.addAttribute("error", "Erreur lors de la récupération des données : " + e.getMessage());
             return "stat_details";
         }
     }
